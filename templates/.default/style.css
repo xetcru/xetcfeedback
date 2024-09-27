@@ -1,0 +1,123 @@
+.err-wrn-alert {
+    display: none;
+    font-size: 16px;
+    bottom: 10px;
+    right: 10px;
+    height: 32px;
+    width: 100%;
+    max-width: 324px;
+    background: #CC2035;
+    color: #fff;
+    padding: 3px 16px;
+    text-align: center;
+    border: solid 1px #fff;
+    border-radius: 4px;
+    z-index: 10000;
+}
+.err-modal-overlay {
+    display: none;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+}
+.err-modal-dialog {
+    display: none;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    min-height: 314px;
+    max-width: 445px;
+    max-height: 314px;
+    font-family: Roboto;
+    border-radius: 8px;
+    transform: translate(-50%, -50%);
+    background-color: rgb(255, 255, 255);
+    padding: 20px 35px;
+    box-shadow: rgba(0, 0, 0, 0.5) 0px 0px 10px;
+    z-index: 100001;
+}
+.err-modal-dialog h3 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 10px 0;
+}
+.err-modal-dialog span {
+    font-size: 16px;
+    font-weight: 400;
+}
+.err-modal-dialog textarea {
+    width: 100%;
+    height: 100%;
+    max-width: 381px;
+    max-height: 94px;
+    margin: 30px 0;
+    border: 1px solid #BDBDBD;
+    border-radius: 4px;
+}
+#charCount {
+    position: absolute;
+    right: 34px;
+    font-size: 12px;
+    color: #c7c7c7;
+}
+.err-modal-dialog button {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48%;
+    height: 40px;
+    padding: 8px;
+    border: 0px solid #fff;
+    border-radius: 4px;
+}
+.err-modal-dialog button[type=submit] {
+    color: #fff;
+    background-color: #CC2035;
+}
+.err-modal-dialog button[disabled], .err-modal-dialog button:disabled{
+    color: #000;
+    background-color: #e9e9ed;
+    cursor: not-allowed;
+}
+.err-close-dialog {
+    position: absolute;
+    top: 35px;
+    right: 35px;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: 0px solid #fff;
+    cursor: pointer;
+}
+.err-close-dialog::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 0;
+    width: 20px;
+    height: 2px;
+    background: #CC2035;
+    transform: rotate(45deg);
+}
+.err-close-dialog::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 0;
+    width: 20px;
+    height: 2px;
+    background: #CC2035;
+    transform: rotate(-45deg);
+}
+.err-modal-action {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+@media (max-width: 340px) {
+    .err-modal-dialog h3{font-size: 22px;}
+}
