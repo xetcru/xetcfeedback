@@ -244,7 +244,7 @@ function getSelectedText() {
 $this->IncludeComponentTemplate();
 ?>
 <?
-// добавить в футер, что бы компонент работал:
+// не забываем добавить в футер, что бы компонент работал:
 /*<?$APPLICATION->IncludeComponent(
     "xetcfeedback",
     "",
