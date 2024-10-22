@@ -1,4 +1,9 @@
 <?
+// Подключение нужных модулей
+if (!CModule::IncludeModule("iblock")) {
+    die("Модуль Инфоблоков не подключен");
+}
+
 $waitTime = 1 * 60; // интервал 1 мин.
 $currentTime = time(); // Получаем текущее время
 // Путь к лог-файлу
@@ -15,6 +20,15 @@ function writeToLog($logFilePath, $arMailFields) {
 
     // Запись данных в лог-файл
     file_put_contents($logFilePath, "\n".date("Y-m-d H:i:s") . $logData, FILE_APPEND);
+}
+
+// Получение инфоблока по коду
+$iblockCode = 'feedback_errors'; // Код вашего инфоблока
+$iblockId = false;
+
+$res = CIBlock::GetList([], ['CODE' => $iblockCode]);
+if ($iblock = $res->Fetch()) {
+    $iblockId = $iblock['ID'];
 }
 
 // Обработка POST-запроса
@@ -42,12 +56,32 @@ if ($_SERVER['REQUEST_METHOD'] == "POST" && !empty($_POST["error_message"]) && !
                 $arMailFields["ERROR_URL"] = (!empty($_POST["error_url"]) ? htmlspecialchars($_POST["error_url"]) : "");
                 $arMailFields["ERROR_REFERER"] = (!empty($_POST["error_referer"]) ? htmlspecialchars($_POST["error_referer"]) : "");
                 $arMailFields["ERROR_USERAGENT"] = (!empty($_POST["error_useragent"]) ? htmlspecialchars($_POST["error_useragent"]) : "");
-                
+
                 writeToLog($logFilePath, $arMailFields);
                 $_SESSION['last_feedback_time'] = $currentTime; // Обновляем время последней отправки
 
                 // Отправка почтового события
                 CEvent::Send("BX", SITE_ID, $arMailFields);
+
+                // Запись в инфоблок
+                $el = new CIBlockElement;
+                $arLoadProductArray = Array(
+                    "NAME" => "Сообщение об ошибке",
+                    "ACTIVE" => "Y", // Активен
+                    "IBLOCK_ID" => $iblockId, // Замените на ID вашего инфоблока
+                    "PROPERTY_VALUES" => array(
+                        "ERROR_MESSAGE" => $arMailFields["ERROR_MESSAGE"],
+                        "ERROR_DESCRIPTION" => $arMailFields["ERROR_DESCRIPTION"],
+                        "ERROR_URL" => $arMailFields["ERROR_URL"],
+                        "ERROR_REFERER" => $arMailFields["ERROR_REFERER"],
+                        "ERROR_USERAGENT" => $arMailFields["ERROR_USERAGENT"],
+                    ),
+                );
+
+                // Добавление элемента в инфоблок
+                if (!$el->Add($arLoadProductArray)) {
+                    writeToLog($logFilePath, array("ERROR_REFERER" => "Ошибка при добавлении в инфоблок: " . $el->LAST_ERROR));
+                }
             }
         } else {
             $arMailFields = Array();
@@ -56,12 +90,32 @@ if ($_SERVER['REQUEST_METHOD'] == "POST" && !empty($_POST["error_message"]) && !
             $arMailFields["ERROR_URL"] = (!empty($_POST["error_url"]) ? htmlspecialchars($_POST["error_url"]) : "");
             $arMailFields["ERROR_REFERER"] = (!empty($_POST["error_referer"]) ? htmlspecialchars($_POST["error_referer"]) : "");
             $arMailFields["ERROR_USERAGENT"] = (!empty($_POST["error_useragent"]) ? htmlspecialchars($_POST["error_useragent"]) : "");
-            
+
             writeToLog($logFilePath, $arMailFields);
             $_SESSION['last_feedback_time'] = $currentTime; // Записываем текущее время
 
             // Отправка почтового события
             CEvent::Send("BX", SITE_ID, $arMailFields);
+
+            // Запись в инфоблок
+            $el = new CIBlockElement;
+            $arLoadProductArray = Array(
+                "NAME" => "Сообщение об ошибке",
+                "ACTIVE" => "Y", // Активен
+                "IBLOCK_ID" => $iblockId, // Замените на ID вашего инфоблока
+                "PROPERTY_VALUES" => array(
+                    "ERROR_MESSAGE" => $arMailFields["ERROR_MESSAGE"],
+                    "ERROR_DESCRIPTION" => $arMailFields["ERROR_DESCRIPTION"],
+                    "ERROR_URL" => $arMailFields["ERROR_URL"],
+                    "ERROR_REFERER" => $arMailFields["ERROR_REFERER"],
+                    "ERROR_USERAGENT" => $arMailFields["ERROR_USERAGENT"],
+                ),
+            );
+
+            // Добавление элемента в инфоблок
+            if (!$el->Add($arLoadProductArray)) {
+                writeToLog($logFilePath, array("ERROR_REFERER" => "Ошибка при добавлении в инфоблок: " . $el->LAST_ERROR));
+            }
         }
     }
 }
@@ -244,7 +298,7 @@ function getSelectedText() {
 $this->IncludeComponentTemplate();
 ?>
 <?
-// не забываем добавить в футер, что бы компонент работал:
+// добавить в футер, что бы компонент работал:
 /*<?$APPLICATION->IncludeComponent(
     "xetcfeedback",
     "",
