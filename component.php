@@ -1,124 +1,116 @@
-<?
+<?php
+/**
+ * Отрефакторенная версия компонента. Примененный паттерн: Template Method.
+ */
 // Подключение нужных модулей
 if (!CModule::IncludeModule("iblock")) {
     die("Модуль Инфоблоков не подключен");
 }
 
-$waitTime = 1 * 60; // интервал 1 мин.
-$currentTime = time(); // Получаем текущее время
-// Путь к лог-файлу
-$logFilePath = $_SERVER["DOCUMENT_ROOT"] . "/log/feederrormsg.txt";
+class FeedbackHandler {
+    protected $waitTime = 1 * 60; // Интервал 1 мин.
+    protected $logFilePath;
+    protected $currentTime;
+    protected $iblockId;
 
-// Функция для записи в лог-файл
-function writeToLog($logFilePath, $arMailFields) {
-    // Создаем строку с данными для лог-файла
-    $logData = ":\n" . "ERROR_MESSAGE: " . (!empty($arMailFields["ERROR_MESSAGE"]) ? mb_convert_encoding($arMailFields["ERROR_MESSAGE"], 'UTF-8') : "") . "\n";
-    $logData .= "ERROR_DESCRIPTION: " . (!empty($arMailFields["ERROR_DESCRIPTION"]) ? mb_convert_encoding($arMailFields["ERROR_DESCRIPTION"], 'UTF-8') : "") . "\n";
-    $logData .= "ERROR_URL: " . (!empty($arMailFields["ERROR_URL"]) ? mb_convert_encoding($arMailFields["ERROR_URL"], 'UTF-8') : "") . "\n";
-    $logData .= "ERROR_REFERER: " . (!empty($arMailFields["ERROR_REFERER"]) ? $arMailFields["ERROR_REFERER"] : "") . "\n";
-    $logData .= "ERROR_USERAGENT: " . (!empty($arMailFields["ERROR_USERAGENT"]) ? mb_convert_encoding($arMailFields["ERROR_USERAGENT"], 'UTF-8') : "") . "\n";
+    public function __construct($iblockCode = 'feedback_errors') {
+        $this->currentTime = time();
+        $this->logFilePath = $_SERVER["DOCUMENT_ROOT"] . "/log/feederrormsg.txt";
+        $this->iblockId = $this->getIblockId($iblockCode);
+    }
 
-    // Запись данных в лог-файл
-    file_put_contents($logFilePath, "\n".date("Y-m-d H:i:s") . $logData, FILE_APPEND);
-}
+    // Шаблонный метод для обработки запросов
+    public function handleRequest() {
+        if ($_SERVER['REQUEST_METHOD'] === "POST" && !empty($_POST["error_message"]) && !empty($_POST["error_url"])) {
+            $arMailFields = $this->prepareData();
 
-// Получение инфоблока по коду
-$iblockCode = 'feedback_errors'; // Код вашего инфоблока
-$iblockId = false;
-
-$res = CIBlock::GetList([], ['CODE' => $iblockCode]);
-if ($iblock = $res->Fetch()) {
-    $iblockId = $iblock['ID'];
-}
-
-// Обработка POST-запроса
-// Проверяем, если у пользователя есть информация о времени последней отправки
-if ($_SERVER['REQUEST_METHOD'] == "POST" && !empty($_POST["error_message"]) && !empty($_POST["error_url"])) {
-    $errorDesc = (!empty($_POST["error_desc"]) ? trim($_POST["error_desc"]) : "");
-    if (strlen($errorDesc) < 3 || strlen($errorDesc) > 1000) {
-        // Если текст не соответствует условиям, выводим сообщение об ошибке
-        $arMailFields["ERROR_REFERER"] = "слишком мало или много.";
-        writeToLog($logFilePath, $arMailFields);
-        //exit; // Останавливаем выполнение скрипта
-    } else {
-        if (isset($_SESSION['last_feedback_time'])) {
-            // Получаем время последней отправки пользователя
-            $lastSubmissionTime = $_SESSION['last_feedback_time'];
-            if ($currentTime - $lastSubmissionTime < $waitTime) { // если слишком часто
-                $arMailFields = Array();
-                $arMailFields["ERROR_REFERER"] = "слишком часто. жди.";
-                writeToLog($logFilePath, $arMailFields);
-            } else {
-                // Прошло достаточно времени, можно отправить сообщение
-                $arMailFields = Array();
-                $arMailFields["ERROR_MESSAGE"] = (!empty($_POST["error_message"]) ? htmlspecialchars(trim($_POST["error_message"])) : "");
-                $arMailFields["ERROR_DESCRIPTION"] = (!empty($_POST["error_desc"]) ? htmlspecialchars(trim($_POST["error_desc"])) : "");
-                $arMailFields["ERROR_URL"] = (!empty($_POST["error_url"]) ? htmlspecialchars($_POST["error_url"]) : "");
-                $arMailFields["ERROR_REFERER"] = (!empty($_POST["error_referer"]) ? htmlspecialchars($_POST["error_referer"]) : "");
-                $arMailFields["ERROR_USERAGENT"] = (!empty($_POST["error_useragent"]) ? htmlspecialchars($_POST["error_useragent"]) : "");
-
-                writeToLog($logFilePath, $arMailFields);
-                $_SESSION['last_feedback_time'] = $currentTime; // Обновляем время последней отправки
-
-                // Отправка почтового события
-                CEvent::Send("BX", SITE_ID, $arMailFields);
-
-                // Запись в инфоблок
-                $el = new CIBlockElement;
-                $arLoadProductArray = Array(
-                    "NAME" => "Сообщение об ошибке",
-                    "ACTIVE" => "Y", // Активен
-                    "IBLOCK_ID" => $iblockId, // Замените на ID вашего инфоблока
-                    "PROPERTY_VALUES" => array(
-                        "ERROR_MESSAGE" => $arMailFields["ERROR_MESSAGE"],
-                        "ERROR_DESCRIPTION" => $arMailFields["ERROR_DESCRIPTION"],
-                        "ERROR_URL" => $arMailFields["ERROR_URL"],
-                        "ERROR_REFERER" => $arMailFields["ERROR_REFERER"],
-                        "ERROR_USERAGENT" => $arMailFields["ERROR_USERAGENT"],
-                    ),
-                );
-
-                // Добавление элемента в инфоблок
-                if (!$el->Add($arLoadProductArray)) {
-                    writeToLog($logFilePath, array("ERROR_REFERER" => "Ошибка при добавлении в инфоблок: " . $el->LAST_ERROR));
-                }
+            if ($this->validateDescription($arMailFields["ERROR_DESCRIPTION"])) {
+                $this->logError("слишком мало или много.");
+                return;
             }
-        } else {
-            $arMailFields = Array();
-            $arMailFields["ERROR_MESSAGE"] = (!empty($_POST["error_message"]) ? htmlspecialchars(trim($_POST["error_message"])) : "");
-            $arMailFields["ERROR_DESCRIPTION"] = (!empty($_POST["error_desc"]) ? htmlspecialchars(trim($_POST["error_desc"])) : "");
-            $arMailFields["ERROR_URL"] = (!empty($_POST["error_url"]) ? htmlspecialchars($_POST["error_url"]) : "");
-            $arMailFields["ERROR_REFERER"] = (!empty($_POST["error_referer"]) ? htmlspecialchars($_POST["error_referer"]) : "");
-            $arMailFields["ERROR_USERAGENT"] = (!empty($_POST["error_useragent"]) ? htmlspecialchars($_POST["error_useragent"]) : "");
 
-            writeToLog($logFilePath, $arMailFields);
-            $_SESSION['last_feedback_time'] = $currentTime; // Записываем текущее время
+            if ($this->isFrequentRequest()) {
+                $this->logError("слишком часто. жди.");
+                return;
+            }
 
-            // Отправка почтового события
-            CEvent::Send("BX", SITE_ID, $arMailFields);
+            $this->writeToLog($arMailFields);
+            $_SESSION['last_feedback_time'] = $this->currentTime;
+            $this->sendEvent($arMailFields);
+            $this->addToIblock($arMailFields);
+        }
+    }
 
-            // Запись в инфоблок
+    // Подготовка данных для записи и отправки
+    protected function prepareData() {
+        return [
+            "ERROR_MESSAGE" => htmlspecialchars(trim($_POST["error_message"])),
+            "ERROR_DESCRIPTION" => htmlspecialchars(trim($_POST["error_desc"] ?? "")),
+            "ERROR_URL" => htmlspecialchars($_POST["error_url"]),
+            "ERROR_REFERER" => htmlspecialchars($_POST["error_referer"] ?? ""),
+            "ERROR_USERAGENT" => htmlspecialchars($_POST["error_useragent"] ?? "")
+        ];
+    }
+
+    // Проверка частоты отправки запросов
+    protected function isFrequentRequest() {
+        return isset($_SESSION['last_feedback_time']) && ($this->currentTime - $_SESSION['last_feedback_time'] < $this->waitTime);
+    }
+
+    // Проверка длины описания ошибки
+    protected function validateDescription($description) {
+        return strlen($description) < 3 || strlen($description) > 1000;
+    }
+
+    // Запись в лог
+    protected function writeToLog($arMailFields) {
+        $logData = date("Y-m-d H:i:s") . ":\n";
+        foreach ($arMailFields as $key => $value) {
+            $logData .= $key . ": " . mb_convert_encoding($value, 'UTF-8') . "\n";
+        }
+        file_put_contents($this->logFilePath, "\n" . $logData, FILE_APPEND);
+    }
+
+    // Отправка почтового события
+    protected function sendEvent($arMailFields) {
+        CEvent::Send("BX", SITE_ID, $arMailFields);
+    }
+
+    // Добавление элемента в инфоблок
+    protected function addToIblock($arMailFields) {
+        if ($this->iblockId) {
             $el = new CIBlockElement;
-            $arLoadProductArray = Array(
+            $arLoadProductArray = [
                 "NAME" => "Сообщение об ошибке",
-                "ACTIVE" => "Y", // Активен
-                "IBLOCK_ID" => $iblockId, // Замените на ID вашего инфоблока
-                "PROPERTY_VALUES" => array(
-                    "ERROR_MESSAGE" => $arMailFields["ERROR_MESSAGE"],
-                    "ERROR_DESCRIPTION" => $arMailFields["ERROR_DESCRIPTION"],
-                    "ERROR_URL" => $arMailFields["ERROR_URL"],
-                    "ERROR_REFERER" => $arMailFields["ERROR_REFERER"],
-                    "ERROR_USERAGENT" => $arMailFields["ERROR_USERAGENT"],
-                ),
-            );
+                "ACTIVE" => "Y",
+                "IBLOCK_ID" => $this->iblockId,
+                "PROPERTY_VALUES" => $arMailFields,
+            ];
 
-            // Добавление элемента в инфоблок
             if (!$el->Add($arLoadProductArray)) {
-                writeToLog($logFilePath, array("ERROR_REFERER" => "Ошибка при добавлении в инфоблок: " . $el->LAST_ERROR));
+                $this->logError("Ошибка при добавлении в инфоблок: " . $el->LAST_ERROR);
             }
         }
     }
+
+    // Получение ID инфоблока
+    protected function getIblockId($iblockCode) {
+        $res = CIBlock::GetList([], ['CODE' => $iblockCode]);
+        if ($iblock = $res->Fetch()) {
+            return $iblock['ID'];
+        }
+        return false;
+    }
+
+    // Логирование ошибок
+    protected function logError($message) {
+        $this->writeToLog(["ERROR_REFERER" => $message]);
+    }
 }
+
+// Инициализация и вызов обработчика
+$handler = new FeedbackHandler();
+$handler->handleRequest();
 ?>
 <script>
 BX.bind(document, "keypress", SendError);
@@ -297,12 +289,12 @@ function getSelectedText() {
 <?php
 $this->IncludeComponentTemplate();
 ?>
-<?
-// добавить в футер, что бы компонент работал:
-/*<?$APPLICATION->IncludeComponent(
+<?php
+/* добавить в футер, что бы компонент работал:
+<?$APPLICATION->IncludeComponent(
     "xetcfeedback",
     "",
     Array()
 );?>
-//*/
+*/
 ?>
