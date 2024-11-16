@@ -1,7 +1,19 @@
 <?php
 /**
+ * Этот компонент подключается с помощью вызова IncludeComponent.
  * Отрефакторенная версия компонента. Примененный паттерн: Template Method.
+ *
+ * @example
+ * Пример использования в футере:
+ * <?php
+ * $APPLICATION->IncludeComponent(
+ *     "xetcfeedback",
+ *     "",
+ *     Array()
+ * );
+ * ?>
  */
+
 // Подключение нужных модулей
 if (!CModule::IncludeModule("iblock")) {
     die("Модуль Инфоблоков не подключен");
@@ -112,13 +124,4 @@ class FeedbackHandler {
 $handler = new FeedbackHandler();
 $handler->handleRequest();
 $this->IncludeComponentTemplate();
-?>
-<?php
-/* добавить в футер, что бы компонент работал:
-<?$APPLICATION->IncludeComponent(
-    "xetcfeedback",
-    "",
-    Array()
-);?>
-*/
 ?>
